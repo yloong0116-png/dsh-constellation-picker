@@ -2,6 +2,14 @@
 
 本项目从「元素周期表选择器」演进为「多厂商星系矩阵」，版本号与结构改动对应如下。
 
+## 0.4.2 — 2026-11-23
+
+- 修复：新建对话后胶囊不再跟随输入框。根因是「新建对话」属于布局重排，不产生 resize / scroll 事件，ResizeObserver 只报告尺寸变化而这里尺寸没变、只是位置变了；同时 MutationObserver 回调在锚点仍连接时直接 return，导致整条同步链路拿不到信号。
+- 位置同步改为 burst 窗口：面板打开时逐帧；其余时间由 DOM 变更、`transitionend` / `animationend`、`pointerdown` / `focusin`、`ResizeObserver`（composer 容器 + documentElement）触发 300–900ms 的短时逐帧，窗口结束立即停止，无常驻 rAF。
+- `locate()` 末尾立即 `sync()`：锚点被 DSH 替换后位置当场归位，不再等循环启动。
+- 坐标系防御：检测 body 是否带 transform，命中时胶囊与面板改用 absolute + scroll 补偿；坐标计算抽到 `src/core/positioning.js`，新增 6 条几何单测（视口 / 文档两种模式、左右边界 clamp、面板上沿计算）。
+- 新增监听全部在卸载时解绑；`ResizeObserver` 在每次重定位后重新绑定当前 composer 容器。
+
 ## 0.4.1 — 2026-11-23
 
 - 修复：选完模型后面板收起、输入框回弹时，胶囊停在旧坐标。根因是定位 effect 依赖 `state.current.model`，换模型会重建整个定位生命周期，而重建后 rAF 只在 `[open]` 变化时启动，面板已关闭所以新的 loop 从未跑起来。

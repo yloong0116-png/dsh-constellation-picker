@@ -13,6 +13,7 @@ const ORDER = [
   "src/core/classifier.js",
   "src/core/reasoning.js",
   "src/core/catalog.js",
+  "src/core/positioning.js",
   "src/adapter/controller.js",
   "src/index.js",
 ];

@@ -12,6 +12,7 @@ import { VENDORS } from "./core/vendor.js";
 import { TIERS } from "./core/classifier.js";
 import { effortsOf, effortLabel } from "./core/reasoning.js";
 import { toChoices, toProviders, filterChoices } from "./core/catalog.js";
+import { seatBox, panelBox } from "./core/positioning.js";
 import { createPickerController } from "./adapter/controller.js";
 
 window.__ModuleLoader__.load({
@@ -250,6 +251,34 @@ window.__ModuleLoader__.load({
           return bodyLum !== null ? bodyLum < 0.5 : false;
         };
 
+        // If the document itself is transformed, `position: fixed` no longer maps
+        // to viewport coordinates — fall back to absolute + scroll compensation.
+        const transformedDoc = (() => {
+          try {
+            const t = getComputedStyle(document.body).transform;
+            return Boolean(t) && t !== "none";
+          } catch {
+            return false;
+          }
+        })();
+        const seatPosition = transformedDoc ? "absolute" : "fixed";
+        const scrollX = () => (transformedDoc ? window.scrollX : 0);
+        const scrollY = () => (transformedDoc ? window.scrollY : 0);
+
+        const composerHost = () => {
+          let host = document.querySelector("textarea, [contenteditable='true']");
+          for (let depth = 0; depth < 6 && host; depth += 1) {
+            if (host.offsetHeight > 90) break;
+            host = host.parentElement;
+          }
+          return host;
+        };
+
+        let resizeObserver = null;
+        if (typeof ResizeObserver === "function") {
+          resizeObserver = new ResizeObserver(() => burst(300));
+        }
+
         const locate = () => {
           const root = rootRef.current;
           const currentName = (() => {
@@ -266,12 +295,7 @@ window.__ModuleLoader__.load({
           if (!target) {
             // Structure first: the model seat is a popup-ish control that sits on
             // the composer footer next to the textarea. Only fall back to labels.
-            let host = document.querySelector("textarea, [contenteditable='true']");
-            for (let depth = 0; depth < 6 && host; depth += 1) {
-              if (host.offsetHeight > 90) break;
-              host = host.parentElement;
-            }
-            const scope = host || document.body;
+            const scope = composerHost() || document.body;
             const candidates = [];
             for (const node of scope.querySelectorAll("button, [role='button']")) {
               if (root && root.contains(node)) continue;
@@ -313,6 +337,17 @@ window.__ModuleLoader__.load({
             if (prev && Math.abs(prev.width - rect.width) < 1 && Math.abs(prev.height - rect.height) < 1) return prev;
             return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
           });
+          if (resizeObserver) {
+            try {
+              resizeObserver.disconnect();
+              resizeObserver.observe(document.documentElement);
+              const host = composerHost();
+              if (host) resizeObserver.observe(host);
+            } catch {
+              /* ignore */
+            }
+          }
+          sync();
         };
 
         /** One read + one write. Cheap enough to call on layout events. */
@@ -320,30 +355,55 @@ window.__ModuleLoader__.load({
           const stock = hiddenNode;
           if (!stock || !stock.isConnected) return;
           const rect = stock.getBoundingClientRect();
+          const ctx = { transformed: transformedDoc, scrollX: window.scrollX, scrollY: window.scrollY };
           const seatNode = seatNodeRef.current;
           if (seatNode) {
-            seatNode.style.left = `${rect.left}px`;
-            seatNode.style.top = `${rect.top}px`;
-            seatNode.style.width = `${rect.width}px`;
-            seatNode.style.height = `${rect.height}px`;
+            const box = seatBox(rect, ctx);
+            seatNode.style.position = box.position;
+            seatNode.style.left = `${box.left}px`;
+            seatNode.style.top = `${box.top}px`;
+            seatNode.style.width = `${box.width}px`;
+            seatNode.style.height = `${box.height}px`;
           }
           const panelNode = panelNodeRef.current;
           if (panelNode && openRef.current) {
-            const bottomGap = Math.round(window.innerHeight - rect.top + 12);
-            const width = panelNode.offsetWidth || 884;
-            const center = rect.left + rect.width / 2;
-            const left = Math.max(14, Math.min(Math.round(center - width / 2), window.innerWidth - width - 14));
-            panelNode.style.left = `${left}px`;
-            panelNode.style.bottom = `${bottomGap}px`;
-            panelNode.style.maxHeight = `${Math.max(320, window.innerHeight - bottomGap - 16)}px`;
+            const box = panelBox({
+              ...ctx,
+              rect,
+              panelWidth: panelNode.offsetWidth || 884,
+              panelHeight: panelNode.offsetHeight || 420,
+              viewportWidth: window.innerWidth,
+              viewportHeight: window.innerHeight,
+            });
+            panelNode.style.position = box.position;
+            panelNode.style.left = `${box.left}px`;
+            panelNode.style.maxHeight = `${box.maxHeight}px`;
+            if (box.top === null) {
+              panelNode.style.top = "auto";
+              panelNode.style.bottom = `${box.bottom}px`;
+            } else {
+              panelNode.style.top = `${box.top}px`;
+              panelNode.style.bottom = "auto";
+            }
           }
         };
 
         let raf = 0;
+        /**
+         * Frames are only consumed inside a "burst" window: while the panel is
+         * open, or for a short time after any layout signal (DOM swap, new
+         * conversation, transition). Outside of that the loop is fully stopped.
+         */
+        let burstUntil = 0;
         const startLoop = () => {
           if (raf || document.hidden) return;
           const tick = () => {
             sync();
+            if (!openRef.current && performance.now() > burstUntil) {
+              raf = 0;
+              sync();
+              return;
+            }
             raf = requestAnimationFrame(tick);
           };
           raf = requestAnimationFrame(tick);
@@ -353,48 +413,49 @@ window.__ModuleLoader__.load({
           cancelAnimationFrame(raf);
           raf = 0;
         };
-        // Keep mirroring for a while after the panel closes: the composer is
-        // still animating back and the chip must ride that transition too.
-        const stopAfter = (delay) => {
-          if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
+        const burst = (ms) => {
+          burstUntil = Math.max(burstUntil, performance.now() + ms);
           startLoop();
-          stopTimerRef.current = setTimeout(() => {
-            stopTimerRef.current = 0;
-            sync();
-            stopLoop();
-          }, delay);
         };
-        loopRef.current = { start: startLoop, stop: stopLoop, sync, stopAfter };
+        // Kept for the open/close effect: panel closing still needs frames while
+        // the composer animates back.
+        const stopAfter = (delay) => burst(delay);
+        loopRef.current = { start: startLoop, stop: stopLoop, sync, burst, stopAfter };
 
         locate();
         sync();
-        window.addEventListener("resize", sync);
-        window.addEventListener("scroll", sync, true);
+
+        // Every signal below means "the composer may have moved" — none of them
+        // changes the window size, so resize/scroll alone cannot catch them.
+        const onLayoutSignal = () => burst(600);
+        const onInteraction = () => burst(900);
+        window.addEventListener("resize", onLayoutSignal);
+        window.addEventListener("scroll", onLayoutSignal, true);
+        document.addEventListener("transitionend", onLayoutSignal, true);
+        document.addEventListener("animationend", onLayoutSignal, true);
+        document.addEventListener("pointerdown", onInteraction, true);
+        document.addEventListener("focusin", onInteraction, true);
+
         const onVisibility = () => {
           if (document.hidden) stopLoop();
           else if (openRef.current) startLoop();
+          else sync();
         };
         document.addEventListener("visibilitychange", onVisibility);
-        let resizeObserver = null;
-        try {
-          const field = document.querySelector("textarea, [contenteditable='true']");
-          const host = field ? field.closest("div") : null;
-          if (host && typeof ResizeObserver === "function") {
-            resizeObserver = new ResizeObserver(() => sync());
-            resizeObserver.observe(host);
-          }
-        } catch {
-          /* ignore */
-        }
+
         let relocated = 0;
         const observer = new MutationObserver(() => {
-          if (hiddenNode && hiddenNode.isConnected) return;
-          if (relocated) return;
-          relocated = setTimeout(() => {
-            relocated = 0;
-            locate();
-            sync();
-          }, 120);
+          // A new conversation swaps the whole composer subtree; the anchor may
+          // survive while its box moves. Both cases need action.
+          if (!hiddenNode || !hiddenNode.isConnected) {
+            if (!relocated) {
+              relocated = setTimeout(() => {
+                relocated = 0;
+                locate();
+              }, 60);
+            }
+          }
+          burst(500);
         });
         observer.observe(document.body, { childList: true, subtree: true });
         return () => {
@@ -404,8 +465,12 @@ window.__ModuleLoader__.load({
           observer.disconnect();
           if (resizeObserver) resizeObserver.disconnect();
           if (relocated) clearTimeout(relocated);
-          window.removeEventListener("resize", sync);
-          window.removeEventListener("scroll", sync, true);
+          window.removeEventListener("resize", onLayoutSignal);
+          window.removeEventListener("scroll", onLayoutSignal, true);
+          document.removeEventListener("transitionend", onLayoutSignal, true);
+          document.removeEventListener("animationend", onLayoutSignal, true);
+          document.removeEventListener("pointerdown", onInteraction, true);
+          document.removeEventListener("focusin", onInteraction, true);
           document.removeEventListener("visibilitychange", onVisibility);
           if (hiddenNode) {
             hiddenNode.style.visibility = "";
