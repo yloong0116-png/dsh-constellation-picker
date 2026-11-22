@@ -13,6 +13,14 @@
 >
 > 验证通过则发布 0.4.4 stable；期间只修回归，不加功能。
 
+## 0.5.2 — 2026-11-23
+
+仅工程与文档，未触碰模型选择 / 定位 / 主题 / UI 逻辑：
+
+- `npm run check` 新增 `scripts/verify-package.mjs`（全部用 Node API，Windows 可直接跑）：双产物存在且字节一致、单份 ≥ 10KB、产物无顶层声明、`npm pack --dry-run` 包含 `client.js` / `lib/client.js` / `index.js` / `cordis.patch.yml`、`index.js` 可导入且导出 `apply()`、`exports` 每个目标都真实存在（含 `./core/*` 通配符按目录校验）。
+- 导入冒烟测试只读仓库自身的 `index.js`，不接触任何 DSH profile。
+- README 与 CONTRIBUTING 增加「移除 / 重装 / 更新后必须完整重启，F5 不重建 host bundle 注册表」的说明，并附上官方 bundle 正确/错误 rev 的 200 vs 404 对照结论。
+
 ## 0.5.1 — 2026-11-23
 
 **面板与胶囊脱离（新建对话）**

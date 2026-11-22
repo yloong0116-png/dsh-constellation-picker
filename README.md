@@ -123,6 +123,16 @@ npx serve .            # 或 python -m http.server 3000
 
 内置 mock 数据覆盖 DeepSeek / OpenAI / Gemini / Kimi 四列，可以直接试展开动画、悬停预览、Low/Medium/High/Extra 档位气泡、搜索与 `↑``↓``Enter` 键盘导航。
 
+### ⚠️ 更新、重装或移除之后：必须完整重启
+
+插件被移除、重新安装或更新后，请**完全退出 DeepSeek Harness 再启动**（`F5` 不够）。
+
+`F5` 只重载渲染进程，host 端的 client bundle 注册表不会重建；此时前端会去请求一个旧 `rev` 的 bundle，得到
+`GET dsh-app://app/plugins/??<pkg>/client.js&rev=… 404`，随后 `web boot: 1 entry did not activate`，表现为启动失败。
+
+已用官方 `@deepseek-ai/dsh-api-gateway` 对照验证：正确 `rev` → 200，错误 `rev` 或不带 `rev` → 404 —— 404 表示「这条 rev 的条目不在 host 的表里」，不是文件缺失。
+
+
 ### 卸载与恢复原版
 
 任选其一：

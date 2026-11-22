@@ -67,6 +67,14 @@ cp -r . "~/.dsh/profiles/<profile>/node_modules/dsh-constellation-picker"
 - 插件没出现？先看有没有 `slot registered: conversation.input.model`；如果是 `model seat failed`，通常是 slot 抢占失败（见 ARCHITECTURE 的 priority 说明）。
 - 面板位置不对但功能正常？看 `sync()` 是否拿到原生按钮的 rect（`visibility: hidden` 必须保留几何）。
 
+## 排查：装上了但页面报 404 / boot 失败
+
+先确认不是「没重启」：移除、重装或更新插件之后，host 的 bundle 注册表只在**应用启动**时重建，`F5` 不会重建。
+典型表现是 Console 里 `plugins/??<pkg>/client.js&rev=… 404` + `web boot: 1 entry did not activate`——完全退出应用再启动即可。
+
+`npm run check` 会验证双产物一致、发布包完整、host 入口可导入；这些都通过却仍 404，就不用再改代码了，先重启。
+
+
 ## 提交规范
 
 - 提交信息用 `type: 中文描述`，type 取 `feat` / `fix` / `docs` / `refactor` / `chore`。
