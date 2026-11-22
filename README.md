@@ -91,6 +91,15 @@ interface PickerProps {
 14. **无 lint / format / CI**（部分完成）：已有 `npm run build` / `test` / `check` 与 CHANGELOG；CI 与格式化尚未接入。
 15. **硬编码中文**：未接 DSH 的 locale 服务。
 
+## 🙌 贡献者
+
+| 贡献者 | 角色 |
+| --- | --- |
+| **DeepSeek Harness (DSH)** | 宿主平台与接口提供方。本项目的槽位注册（`slots`）、模型目录（`modelDirectories`）、切换链路（`directory.select`）与 React 运行时全部由 DSH 提供；没有它，这份代码无从存在。 |
+| **YG** | 作者。交互设计、实现与文档。 |
+
+欢迎把你的名字加进这张表——提交一个有实质改动的 PR 即可。
+
 ## 📄 License
 
 MIT License
