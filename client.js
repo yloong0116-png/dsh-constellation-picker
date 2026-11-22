@@ -472,6 +472,23 @@ window.__ModuleLoader__.load({
       return hasSubmenu ? "close-menu" : "close-panel";
     }
 
+    /**
+     * Decide what a mousedown means, given which region it landed in.
+     *
+     * - `menu`   the tier bubble itself            → keep everything open
+     * - `panel`  the model matrix, bubble closed   → normal interaction
+     * - `panel`  the model matrix, bubble open     → close only the bubble
+     * - `outside` everything else                   → close the panel
+     *
+     * @param {"menu"|"panel"|"outside"} region
+     * @param {boolean} hasSubmenu
+     */
+    function dismissAction(region, hasSubmenu) {
+      if (region === "menu") return "none";
+      if (region === "panel") return hasSubmenu ? "close-menu" : "none";
+      return "close-panel";
+    }
+
     // ── src/adapter/controller.js
     /**
      * Framework-agnostic picker controller.
@@ -657,10 +674,12 @@ window.__ModuleLoader__.load({
 /* ── design tokens ───────────────────────────────────────────── */
 .pcm-panel.light,.pcm-menu.light{--pcm-surface:#ffffff;--pcm-surface2:#f8fafc;--pcm-border:rgba(15,23,42,.09);
   --pcm-name:#111111;--pcm-strong:#0f172a;--pcm-text:#334155;--pcm-muted:#94a3b8;--pcm-card-muted:#94a3b8;
-  --pcm-tag-bg:#f1f5f9;--pcm-tag-fg:#475569;--pcm-hover:#f6f8fb;--pcm-glow:rgba(37,99,235,.16)}
+  --pcm-tag-bg:#f1f5f9;--pcm-tag-fg:#475569;--pcm-hover:#f6f8fb;--pcm-glow:rgba(37,99,235,.16);
+  --pcm-menu-fg:#0f172a;--pcm-menu-muted:#64748b;--pcm-bar:#e2e8f0;--pcm-bar-on:#2563eb;--pcm-opt-on-fg:#1d4ed8}
 .pcm-panel.dark,.pcm-menu.dark{--pcm-surface:#14161a;--pcm-surface2:#e9ecf1;--pcm-border:rgba(255,255,255,.1);
   --pcm-name:#111111;--pcm-strong:#f1f5f9;--pcm-text:#cbd5e1;--pcm-muted:#8b95a3;--pcm-card-muted:#5b6472;
-  --pcm-tag-bg:rgba(255,255,255,.07);--pcm-tag-fg:#cbd5e1;--pcm-hover:rgba(255,255,255,.06);--pcm-glow:rgba(96,165,250,.28)}
+  --pcm-tag-bg:rgba(255,255,255,.07);--pcm-tag-fg:#cbd5e1;--pcm-hover:rgba(255,255,255,.06);--pcm-glow:rgba(96,165,250,.28);
+  --pcm-menu-fg:#f1f5f9;--pcm-menu-muted:#9aa5b1;--pcm-bar:#3a4150;--pcm-bar-on:#60a5fa;--pcm-opt-on-fg:#93c5fd}
 
 .pcm-panel{background:var(--pcm-surface,#fff);color:var(--pcm-text,#334155);
   border-color:var(--pcm-border,rgba(15,23,42,.07));
@@ -701,7 +720,18 @@ window.__ModuleLoader__.load({
   background:transparent;cursor:pointer;font-size:13px;line-height:1}
 .pcm-back{flex:0 0 auto;width:20px;height:20px;border:0;border-radius:7px;background:transparent;
   color:var(--pcm-muted,#94a3b8);cursor:pointer;font-size:12px;line-height:1;padding:0}
-.pcm-back:hover{background:var(--pcm-hover,#f1f5f9);color:var(--pcm-name,#0f172a)}
+.pcm-back:hover{background:var(--pcm-hover,#f1f5f9);color:var(--pcm-menu-fg,#0f172a)}
+
+/* bubble text must follow the menu tokens, never the always-black card name */
+.pcm-menu{color:var(--pcm-menu-fg,#0f172a)}
+.pcm-menu .pcm-menu-head .nm{color:var(--pcm-menu-fg,#0f172a)}
+.pcm-menu .pcm-menu-head .ds{color:var(--pcm-menu-muted,#64748b)}
+.pcm-menu .pcm-opt .lab b{color:var(--pcm-menu-fg,#0f172a)}
+.pcm-menu .pcm-opt .lab span{color:var(--pcm-menu-muted,#64748b)}
+.pcm-menu .pcm-opt.on .lab b{color:var(--pcm-opt-on-fg,#1d4ed8)}
+.pcm-menu .pcm-opt:focus-visible{outline:2px solid var(--pcm-bar-on,#2563eb);outline-offset:1px}
+.pcm-menu .pcm-bars i{background:var(--pcm-bar,#e2e8f0)}
+.pcm-menu .pcm-bars i.on{background:var(--pcm-bar-on,#2563eb)}
 `;
 
     function ensureStyle() {
@@ -1339,6 +1369,11 @@ window.__ModuleLoader__.load({
 
       const openChoice = (choice, node) => {
         if (locked || !choice) return;
+        // Same card again → treat as "cancel this bubble".
+        if (submenu && submenu.provider === choice.provider && submenu.model === choice.model) {
+          setSubmenu(null);
+          return;
+        }
         const efforts = (choice.reasoning && choice.reasoning.efforts) || [];
         if (!efforts.length) {
           accept(choice);
@@ -1571,7 +1606,12 @@ window.__ModuleLoader__.load({
             maxHeight: `${Math.max(320, window.innerHeight - panelBottom - 16)}px`,
             transformOrigin: `50% calc(100% + ${panelBottom}px)`,
           },
-          onMouseDown: (e) => e.stopPropagation(),
+          onMouseDown: (e) => {
+            e.stopPropagation();
+            // Clicks inside the matrix but outside the bubble pop the bubble
+            // first; the panel itself stays open.
+            if (dismissAction("panel", Boolean(submenu)) === "close-menu") setSubmenu(null);
+          },
           role: "dialog",
           "aria-label": "模型能力矩阵",
         },
@@ -1631,6 +1671,7 @@ window.__ModuleLoader__.load({
             "div",
             {
               className: `pcm-menu ${dark ? "dark" : "light"}`,
+              "data-pcm-menu": "1",
               style: { left: `${left}px`, top: `${top}px`, "--pcm-origin": toRight ? "left top" : "right top" },
               onMouseDown: (e) => e.stopPropagation(),
               role: "menu",
