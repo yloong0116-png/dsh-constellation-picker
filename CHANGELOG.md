@@ -13,6 +13,14 @@
 >
 > 验证通过则发布 0.4.4 stable；期间只修回归，不加功能。
 
+## 0.5.0 — 2026-11-23
+
+- 修复接管 model slot 后胶囊位置偏移、内容被截断：`priority: -100` 生效后原生模型按钮**不再渲染**，而定位逻辑仍在找一个并不存在的按钮，最终匹配到旁边的其它 popup 控件（位置偏左、宽度按它计算）。
+- 现在按槽位区分两种渲染模式：
+  - 模型位（`conversation.input.model`）：胶囊直接 inline 渲染在工具栏里，宽度由内容决定，不再做 fixed 贴靠；
+  - 兜底槽（`conversation.input.dock`）：仍用固定的 rAF/burst 定位去贴原生按钮。
+- 实现方式：注册时用一个包装组件把 `seatMode` 传进 UI，定位 effect 在该模式下直接不挂载（同时省掉 observer 与帧循环）。
+
 ## 0.4.9 — 2026-11-23
 
 - 修复模型位注册失败：`slot "conversation.input.model.label" is already declared`。早期为了对齐官方声明，给模型位 slot 加了 `children` 子槽，与官方 model-selection 的子槽重名冲突，导致注册抛错并退化到 `conversation.input.dock`（表现为胶囊位置不对）。现只保留 `priority: -100`。
