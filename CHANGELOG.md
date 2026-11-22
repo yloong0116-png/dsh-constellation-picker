@@ -2,6 +2,18 @@
 
 本项目从「元素周期表选择器」演进为「多厂商星系矩阵」，版本号与结构改动对应如下。
 
+## 0.4.0 — 2026-11-23
+
+**Developer-first architecture**
+
+- 源码拆分：`src/core/`（vendor / classifier / reasoning / catalog 纯函数）、`src/adapter/controller.js`（框架无关 Controller）、`src/index.js`（React UI + 注册）。`lib/client.js` 变为构建产物。
+- 新增零依赖打包脚本 `build.mjs`（去 import/export 后按序拼接），不引入 bundler 依赖。
+- 新增 `types/index.d.ts`：`ModelChoice` / `PickerState` / `PickerController` / `PickerProps` 成为唯一契约，文档引用它。
+- 新增 `createPickerController`：任何渲染层（Vue / Svelte / 纯 DOM）都能驱动同一套目录与选择逻辑。
+- demo 支持 `?catalog=<url>` 加载任意模拟目录，默认数据移到 `demo/mock-catalog.json`。
+- 新增 10 条单测（`npm test`），覆盖分类、厂商识别、档位映射、目录派生与过滤；测试暴露并修复了 `Gemini` 被 `mini` 规则误判为轻量模型的 bug（正则改为单词边界）。
+- 能力分类不再把 `DeepSeek` 的 "deep" 当作推理标识。
+
 ## 0.3.0 — 2026-11-22
 
 **结构性加固**

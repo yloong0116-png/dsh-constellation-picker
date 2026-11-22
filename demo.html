@@ -19,9 +19,11 @@
   .composer .line { font-size: 13px; color: #94a3b8; padding: 8px 2px 26px; }
   .composer .foot { display: flex; align-items: center; justify-content: flex-end; gap: 10px; min-height: 30px; }
   .ghost { height: 28px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 999px; background: #f1f5f9; color: #64748b; font-size: 12px; }
+  .hint { position: fixed; left: 16px; top: 12px; font: 11px/1.5 ui-monospace, monospace; color: #94a3b8; }
 </style>
 </head>
 <body>
+<div class="hint">mock: <span id="src">loading…</span> · 追加 <code>?catalog=/path/to/catalog.json</code> 可换任意模拟目录</div>
 <div class="stage">
   <div class="composer">
     <div class="line">预览模式：模拟 DSH 输入框底部一行（右侧为模型位）。</div>
@@ -34,53 +36,18 @@
   import * as ReactDOM from "https://esm.sh/react-dom@18.3.1";
   import { createRoot } from "https://esm.sh/react-dom@18.3.1/client";
 
-  const reasoning = (names, def) => ({
-    efforts: names.map((name) => ({ id: name.toLowerCase(), name })),
-    defaultEffort: def,
-  });
+  // Any JSON with { groups: [{ id, name, models }], current? } works here.
+  const catalogUrl = new URLSearchParams(location.search).get("catalog") || "./demo/mock-catalog.json";
+  document.getElementById("src").textContent = catalogUrl;
 
-  const groups = [
-    {
-      id: "deepseek-account",
-      name: "DeepSeek 账号",
-      models: [
-        { id: "deepseek-reasoner", name: "DeepSeek-R1", reasoning: reasoning(["Low", "Medium", "High"], "high") },
-        { id: "deepseek-v4", name: "DeepSeek-V4", reasoning: reasoning(["Low", "Medium", "High", "Max"], "high") },
-        { id: "deepseek-flash", name: "DeepSeek-Flash", reasoning: reasoning(["Low", "High"], "low") },
-      ],
-    },
-    {
-      id: "openai",
-      name: "OpenAI",
-      models: [
-        { id: "gpt-5", name: "GPT-5", reasoning: reasoning(["Minimal", "Low", "Medium", "High"], "medium") },
-        { id: "gpt-5-mini", name: "GPT-5 mini", reasoning: { efforts: [], defaultEffort: undefined } },
-      ],
-    },
-    {
-      id: "gemini",
-      name: "Gemini",
-      models: [
-        { id: "gemini-4-pro", name: "Gemini 4 Pro 1M", reasoning: reasoning(["Low", "Medium", "High"], "medium") },
-        { id: "gemini-4-flash", name: "Gemini 4 Flash", reasoning: { efforts: [], defaultEffort: undefined } },
-      ],
-    },
-    {
-      id: "kimi",
-      name: "Kimi",
-      models: [
-        { id: "kimi-k2", name: "Kimi k2 Thinking", reasoning: reasoning(["Low", "Medium", "High"], "medium") },
-        { id: "kimi-lite", name: "Kimi Lite", reasoning: { efforts: [], defaultEffort: undefined } },
-      ],
-    },
-  ];
-
+  const catalog = await (await fetch(catalogUrl)).json();
   let snapshot = {
     status: "ready",
-    groups,
+    groups: catalog.groups || [],
     failures: [],
-    current: { provider: "deepseek-account", model: "deepseek-v4", reasoningEffort: "high" },
+    current: catalog.current || null,
   };
+
   const listeners = new Set();
   const store = {
     subscribe(cb) { listeners.add(cb); return () => listeners.delete(cb); },
@@ -100,7 +67,7 @@
   const slot = document.getElementById("slot");
   const ghost = document.createElement("button");
   ghost.className = "ghost";
-  ghost.textContent = "DeepSeek-V4 High";
+  ghost.textContent = snapshot.current ? `${snapshot.current.model} ${snapshot.current.reasoningEffort || ""}` : "请选择模型";
   slot.appendChild(ghost);
   const mount = document.createElement("span");
   mount.style.display = "inline-flex";
@@ -131,7 +98,7 @@
 <script>
   window.addEventListener("error", (e) => {
     const el = document.createElement("div");
-    el.style.cssText = "position:fixed;left:16px;top:12px;font:12px monospace;color:#b91c1c";
+    el.style.cssText = "position:fixed;left:16px;top:36px;font:12px monospace;color:#b91c1c";
     el.textContent = "预览加载失败: " + (e.message || "unknown");
     document.body.appendChild(el);
   });

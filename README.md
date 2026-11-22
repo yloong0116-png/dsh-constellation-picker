@@ -31,7 +31,7 @@ The current implementation is only **one possible interpretation** of a better m
 | 层 | 内容 | 自由度 |
 | --- | --- | --- |
 | **Core** | 槽位注册、原生按钮定位、`directory.select()` 切换 | 谨慎：改错表现为“插件消失” |
-| **Config** | `VENDORS` / `EXPECTED` / `TIERS`（厂商品牌、未接入占位、能力分类规则） | 自由扩展：加厂商、调分类不用碰组件 |
+| **Config** | `src/core/vendor.js`（厂商品牌、未接入占位）、`src/core/classifier.js`（三档分类规则） | 自由扩展：加厂商、调分类不用碰 UI |
 | **UI** | 面板布局、矩阵、卡片、动画、配色 | 鼓励推翻：只要满足 `PeriodicPicker` 的 props 契约 |
 
 UI 层的数据契约（实现一个新 UI 只需要这个）：
@@ -70,17 +70,17 @@ interface PickerProps {
 
 5. ~~**没有键盘导航与搜索**~~ → 已加搜索框 + `↑`/`↓`/`Enter`，但尚未支持 Tab 焦点环与屏幕阅读器播报。
 6. **三档归类靠模型名正则**（`reason|pro|flash|mini`）：厂商命名一变就归错档，应改为读取目录元数据或配置覆盖。（档位气泡已不再假设数组下标 = Low/Extra）
-7. **配置未真正解耦**：`VENDORS` / `EXPECTED` / `TIERS` 仍写在 `lib/client.js` 顶部，没有独立 JSON 与 host 端配置路由。
+7. **配置未真正解耦**（部分完成）：已从 UI 中剥离到 `src/core/vendor.js` / `classifier.js` 纯函数模块，但仍是 JS 常量，没有独立 JSON 与 host 端配置路由。
 8. **面板固定白卡**：暗色主题下胶囊已适配，面板仍是白色，视觉割裂。
 9. **收起动画与展开不同频**：展开 320ms 弹性曲线，收起仍是 175ms 后卸载（定时器已可取消）；两端曲线尚未统一。
 10. **没有“最近使用 / 收藏”**：跨厂商切换每次都要重新找位置。
 
 ### C. 工程与发布
 
-11. **单文件 1000+ 行、无构建、无类型、无测试**：拆分方案见 `CONTRIBUTING.md` 的「计划中的重构」。
+11. ~~**单文件、无类型、无测试**~~ → 已拆为 `src/core`（纯函数）、`src/adapter`（框架无关 controller）、`src/index.js`（UI + 注册）；`build.mjs` 零依赖拼成 `lib/client.js`；补了 `types/index.d.ts` 与 10 条单测。UI 组件仍未按组件粒度拆分。
 12. **缺视觉证明**：没有 GIF / 截图（欢迎贡献录制）。
-13. **`demo.html` 依赖 esm.sh CDN**：离线打不开，需要 vendored React 或纯 DOM 版。
-14. **无 lint / format / CI / changelog**：版本号手写。
+13. **`demo.html` 依赖 esm.sh CDN**（部分完成）：已支持 `?catalog=<url>` 加载任意模拟目录，`demo/mock-catalog.json` 是默认数据；离线仍打不开，需要 vendored React。
+14. **无 lint / format / CI**（部分完成）：已有 `npm run build` / `test` / `check` 与 CHANGELOG；CI 与格式化尚未接入。
 15. **硬编码中文**：未接 DSH 的 locale 服务。
 
 ## 📄 License

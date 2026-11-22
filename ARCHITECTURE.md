@@ -87,14 +87,39 @@ interface PickerProps {
 ## 目录与文件
 
 ```
-lib/client.js     浏览器半（单文件 bundle，window.__ModuleLoader__ 协议）
-index.js          host 半（空实现，仅用于让包出现在 Loader 里、使 dsh.client 被发现）
-cordis.patch.yml  bundle 注册（insert 一条 patch）
-demo.html         独立预览，Mock store，不依赖 DSH
+src/core/vendor.js       厂商品牌 + 未接入占位（纯数据 + vendorOf）
+src/core/classifier.js   三档分类 + 规格徽标（tierOf / badgesOf）
+src/core/reasoning.js    档位映射与文案（effortsOf / effortLabel）
+src/core/catalog.js      目录派生（toChoices / toProviders / filterChoices）
+src/adapter/controller.js 框架无关 Controller（getSnapshot / subscribe / load / select / filter）
+src/index.js             React UI + DSH 槽位注册 + 定位/动画
+lib/client.js            ⚠️ 构建产物，勿直接编辑（npm run build 生成）
+types/index.d.ts         唯一的类型契约（ModelChoice / PickerState / PickerController / PickerProps）
+build.mjs                零依赖打包：剥掉 import/export 后按顺序拼接
+demo.html                预览页，?catalog=<url> 可换任意模拟目录
+demo/mock-catalog.json   默认模拟模型目录
+tests/core.test.mjs      core 纯函数单测（node --test）
+index.js                 host 半（空实现，仅让包出现在 Loader 里）
 ```
+
+构建顺序由 `build.mjs` 的 `ORDER` 决定：core → adapter → index。因为模块间符号不重名，打包就是「去 import/export 后拼接」，不引入 bundler 依赖。
+
+## 用 Controller 替换框架
+
+`createPickerController({ directory, select, load })` 返回的对象只依赖一个 store 契约（`subscribe` / `getSnapshot`），不含任何 React。任何渲染层都可以直接驱动它：
+
+```js
+const controller = createPickerController({ directory, select });
+controller.subscribe(render);
+render(controller.getSnapshot());        // { choices, providers, current, … }
+controller.filter("gpt");                // 纯函数过滤
+await controller.select(choice, "high"); // 切换模型 + 推理档
+```
+
+React 只是默认实现：`src/index.js` 里用 `useSyncExternalStore(controller.subscribe, controller.getSnapshot)` 接上。
 
 ## 已知的架构债务
 
-- `lib/client.js` 仍是单文件（Adappter / Domain / UI / Interaction 混在一起），拆分方案见 `CONTRIBUTING.md`。
-- 配置（`VENDORS` / `EXPECTED` / `TIERS`）内联在文件顶部，未抽成 JSON。
+- UI 仍是单个组件文件（`src/index.js` 约 900 行），未按 Picker / Matrix / Card / Menu 拆分。
+- 配置是 JS 常量，未抽成 JSON + host 路由。
 - 面板未接入暗色变量，仍是白卡。

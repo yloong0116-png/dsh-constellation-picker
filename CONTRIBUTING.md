@@ -8,7 +8,7 @@
 
 - Node.js 18+（仅用于语法检查与本地静态服务器，插件本身无构建步骤）
 - 一个能装的 DeepSeek Harness（桌面版或 web profile）
-- 改前端不需要编译：`lib/client.js` 是浏览器直接加载的单文件 bundle
+- 改前端要重新打包：源码在 `src/`，`npm run build` 用零依赖脚本拼成 `lib/client.js`（浏览器直接加载的单文件 bundle）
 
 ## 三条改动路径
 
@@ -26,8 +26,17 @@
 ### 1. 只看 UI（不需要 DSH）
 
 ```bash
+npm run build      # 改了 src/ 之后先打包
 npx serve .        # 或 python -m http.server
 # 打开 http://localhost:3000/demo.html
+# 换一份模拟目录：demo.html?catalog=./demo/mock-catalog.json
+```
+
+### 1.5 跑测试与自检
+
+```bash
+npm test           # core 纯函数单测（10 条，不需要 DSH）
+npm run check      # 打包 + 语法检查 + 单测
 ```
 
 `demo.html` 自带 mock 模型目录（DeepSeek / OpenAI / Gemini / Kimi 四列），可以直接测搜索、键盘、档位气泡。
