@@ -1,0 +1,46 @@
+{
+  "name": "dsh-constellation-picker",
+  "version": "0.3.0",
+  "description": "An experimental multi-provider model selector plugin for DeepSeek Harness featuring a constellation capability matrix and synchronized morphing animations.",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "model-picker",
+    "ui"
+  ],
+  "author": "YG",
+  "license": "MIT",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "index.js",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yloong0116-png/dsh-constellation-picker.git"
+  },
+  "homepage": "https://github.com/yloong0116-png/dsh-constellation-picker#readme",
+  "bugs": {
+    "url": "https://github.com/yloong0116-png/dsh-constellation-picker/issues"
+  }
+}

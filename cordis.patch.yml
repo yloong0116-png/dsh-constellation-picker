@@ -1,0 +1,4 @@
+- insert:
+    - id: constellation-picker
+      name: dsh-constellation-picker
+      config: {}
