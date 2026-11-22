@@ -12,7 +12,7 @@ import { VENDORS } from "./core/vendor.js";
 import { TIERS } from "./core/classifier.js";
 import { effortsOf, effortLabel } from "./core/reasoning.js";
 import { toChoices, toProviders, filterChoices } from "./core/catalog.js";
-import { seatBox, panelBox } from "./core/positioning.js";
+import { seatBox, panelBox, positionedBodyOrigin } from "./core/positioning.js";
 import { createBurstGuard } from "./core/burst.js";
 import { detectContainingBlock } from "./core/containing-block.js";
 import { createPickerController } from "./adapter/controller.js";
@@ -274,8 +274,11 @@ window.__ModuleLoader__.load({
           try {
             const positioned = getComputedStyle(document.body).position !== "static";
             if (!positioned) return { origin: { x: 0, y: 0 }, scroll: { x: window.scrollX, y: window.scrollY } };
-            const rect = document.body.getBoundingClientRect();
-            return { origin: { x: rect.left, y: rect.top }, scroll: { x: 0, y: 0 } };
+            const body = document.body;
+            return positionedBodyOrigin(body.getBoundingClientRect(), {
+              left: body.clientLeft,
+              top: body.clientTop,
+            });
           } catch {
             return { origin: { x: 0, y: 0 }, scroll: { x: window.scrollX, y: window.scrollY } };
           }

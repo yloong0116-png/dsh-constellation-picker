@@ -13,6 +13,14 @@
 >
 > 验证通过则发布 0.4.4 stable；期间只修回归，不加功能。
 
+## 0.4.4-rc.2 — 2026-11-23
+
+坐标边界核查（仅此一处修正，其余不动）：
+
+- `positionedBodyOrigin()`：`<body>` 自身被定位时，`absolute` 子元素的 containing block 是 body 的 **padding box**，其原点是 border box 的 `getBoundingClientRect()` 左上角**加上 `clientLeft` / `clientTop`**（即 border 宽度）。此前直接用 `rect.left/top`，在 body 有非零 border 时会整体偏一个 border 宽度。默认 UA 样式 body 只有 `margin: 8px`、border 为 0，所以实际偏差为 0，但公式缺项已补齐。
+- 同时确认：padding 不影响原点；页面滚动已包含在 body 的 rect 内（不叠加 scroll）；body 自身滚动容器也不影响 padding box 原点。
+- 新增 3 条纯函数测试：无 border、有 border、与 `seatBox` 组合时只补偿一次。
+
 ## 0.4.4 — 2026-11-23
 
 第二轮定位审查的两处修正（均为代码层面可证的缺陷，非推测）：

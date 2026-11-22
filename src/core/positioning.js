@@ -51,3 +51,16 @@ export function panelBox(input) {
   }
   return { position: "fixed", left, bottom: bottomGap, top: null, maxHeight };
 }
+
+/**
+ * Origin of the containing block for an `absolute` child when <body> itself is
+ * positioned: that is the body's **padding box**, i.e. its border-box rect
+ * shifted by the border widths (clientLeft / clientTop). Padding does not move
+ * the origin; the scroll offset is already baked into the rect.
+ */
+export function positionedBodyOrigin(bodyRect, bodyClient = { left: 0, top: 0 }) {
+  return {
+    origin: { x: bodyRect.left + (bodyClient.left || 0), y: bodyRect.top + (bodyClient.top || 0) },
+    scroll: { x: 0, y: 0 },
+  };
+}

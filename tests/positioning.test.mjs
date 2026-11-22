@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { seatBox, panelBox } from "../src/core/positioning.js";
+import { seatBox, panelBox, positionedBodyOrigin } from "../src/core/positioning.js";
 
 test("seatBox: viewport mode passes rect through unchanged", () => {
   const box = seatBox({ left: 100, top: 200, width: 180, height: 28 }, { transformed: false, scrollX: 50, scrollY: 900 });
@@ -84,4 +84,21 @@ test("panelBox: positioned body keeps the panel over the seat", () => {
   });
   assert.equal(box.left, 200 - 8);
   assert.equal(box.top, 700 - 8 - 12 - 300);
+});
+
+test("positionedBodyOrigin: no border means border-box == padding-box", () => {
+  const box = positionedBodyOrigin({ left: 8, top: 8 }, { left: 0, top: 0 });
+  assert.deepEqual(box, { origin: { x: 8, y: 8 }, scroll: { x: 0, y: 0 } });
+});
+
+test("positionedBodyOrigin: border widths shift the padding-box origin", () => {
+  const box = positionedBodyOrigin({ left: 8, top: 8 }, { left: 2, top: 3 });
+  assert.deepEqual(box.origin, { x: 10, y: 11 });
+});
+
+test("seatBox + positionedBodyOrigin: border is compensated exactly once", () => {
+  const ctx = { transformed: true, ...positionedBodyOrigin({ left: 8, top: 8 }, { left: 2, top: 3 }) };
+  const box = seatBox({ left: 100, top: 200, width: 180, height: 28 }, ctx);
+  assert.equal(box.left, 100 - 10);
+  assert.equal(box.top, 200 - 11);
 });
