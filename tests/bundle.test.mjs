@@ -39,3 +39,26 @@ test("bundle: still registers exactly one module id", () => {
   vm.runInContext(bundle, ctx);
   assert.deepEqual(loaded, ["dsh-constellation-picker"]);
 });
+
+test("bundle: factory executes with stub react / react-dom without throwing", () => {
+  const React = {
+    createElement: () => ({}),
+    useState: () => [null, () => {}],
+    useMemo: (fn) => fn(),
+    useRef: () => ({ current: null }),
+    useEffect: () => {},
+    useSyncExternalStore: () => null,
+    Component: class {},
+    Fragment: {},
+  };
+  const ReactDOM = { createPortal: () => ({}) };
+  let def;
+  const ctx = vm.createContext({
+    console: { info() {}, error() {}, warn() {} },
+    window: { __ModuleLoader__: { load(d) { def = d; } } },
+  });
+  vm.runInContext(bundle, ctx);
+  const exported = def.factory((name) => (name === "react" ? React : ReactDOM));
+  assert.equal(typeof exported.apply, "function");
+  assert.equal(exported.inject.join(","), "slots,modelDirectories");
+});
