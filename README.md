@@ -63,6 +63,77 @@ interface PickerProps {
 * **崩溃隔离**：整棵子树包在 ErrorBoundary 内，异常时还原原生按钮，不拖垮输入框。
 * **深浅主题**：胶囊按输入框背景亮度自动配色。
 
+## 📦 安装与使用（Installation）
+
+### 方式一：装进 DeepSeek Harness 客户端
+
+**1. 克隆仓库**
+
+```bash
+git clone https://github.com/yloong0116-png/dsh-constellation-picker.git
+cd dsh-constellation-picker
+```
+
+仓库里已提交构建产物 `lib/client.js`，**不需要 npm install 或构建**就能直接用（改源码才需要 `npm run build`）。
+
+**2. 复制到 profile 的 node_modules**
+
+```bash
+# Windows（默认 profile 名为 desktop）
+cp -r . "%USERPROFILE%\.dsh\profiles\desktop\node_modules\dsh-constellation-picker"
+
+# macOS / Linux
+cp -r . ~/.dsh/profiles/<profile>/node_modules/dsh-constellation-picker
+```
+
+**3. 在 profile 的 package.json 里登记两处**
+
+```jsonc
+{
+  "dependencies": {
+    "dsh-constellation-picker": "file:<仓库绝对路径>"
+  },
+  "dsh": {
+    "profile": {
+      "bundles": ["...", "dsh-constellation-picker"]
+    }
+  }
+}
+```
+
+两者缺一不可：`dependencies` 让 Node 能解析到包，`dsh.profile.bundles` 让 host 在启动时加载它的 patch。
+
+**4. 重启 DeepSeek Harness**
+
+输入框右下角的原生模型按钮会被替换成胶囊。只想让它热更新而不重启整个客户端时，用插件管理器把 `constellation-picker` 停用再启用一次。
+
+> **关于 ID**：cordis 条目 id 是 `constellation-picker`，包名是 `dsh-constellation-picker`（早期版本叫 `dsh-periodic-model-picker`，已改名）。换 ID 的地方只有 profile 的包名。
+
+> **为什么不用 `dsh plugin install`**：`dsh plugin --profile <name>` 会把参数转发给 pnpm，但 desktop profile 由 Electron 独占管理，CLI 会直接报 `profile "desktop" is managed exclusively by the Electron application`。桌面版只能按上面的方式手动登记然后重启。
+
+### 方式二：只预览交互动画（不装客户端）
+
+`demo.html` 用 `fetch` 读取模拟目录，`file://` 下会被浏览器的跨域策略拦掉，**必须跑一个静态服务器**：
+
+```bash
+npx serve .            # 或 python -m http.server 3000
+# 打开 http://localhost:3000/demo.html
+# 换任意模拟目录：http://localhost:3000/demo.html?catalog=./demo/mock-catalog.json
+```
+
+内置 mock 数据覆盖 DeepSeek / OpenAI / Gemini / Kimi 四列，可以直接试展开动画、悬停预览、Low/Medium/High/Extra 档位气泡、搜索与 `↑``↓``Enter` 键盘导航。
+
+### 卸载与恢复原版
+
+任选其一：
+
+1. 用插件管理器停用 `constellation-picker`（不改文件，随时可再启用）；
+2. 从 profile 的 `package.json` 删掉 `dependencies` 与 `dsh.profile.bundles` 里的对应项，并删除 `node_modules/dsh-constellation-picker` 目录。
+
+刷新或重启后即恢复原生模型选择器，历史对话与会话数据不受影响。
+
+---
+
 ## 🧭 Known Issues & Roadmap
 
 15 条技术债，按「会坏的 → 用起来硌手的 → 工程债」排序，欢迎认领任意一条。
