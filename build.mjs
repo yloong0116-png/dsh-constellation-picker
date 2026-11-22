@@ -59,4 +59,7 @@ if (offenders.length) {
 
 mkdirSync(dirname(OUT), { recursive: true });
 writeFileSync(OUT, output);
+// DSH resolves the browser bundle as `<package>/client.js` (proven by the 404
+// in the crash log). Keep a copy at the package root so both rules work.
+writeFileSync("client.js", output);
 console.log(`built ${OUT}: ${MODULES.length} modules inlined, 0 top-level declarations`);

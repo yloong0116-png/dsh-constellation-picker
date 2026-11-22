@@ -13,6 +13,18 @@
 >
 > 验证通过则发布 0.4.4 stable；期间只修回归，不加功能。
 
+## 0.4.7 — 2026-11-23
+
+**P0：修复 `GET .../plugins/??dsh-constellation-picker/client.js` 404 导致的 boot 失败**
+
+- 崩溃现场给出确切证据：DSH 请求的是 `<包目录>/client.js`，而产物只存在于 `lib/client.js`，`exports["./client"]` 并没有被用于这个 URL。于是 bundle 404 → import failed → `web boot: 1 entry did not activate` → 应用无法启动。
+- 修复：`build.mjs` 同时输出 `client.js`（包根）与 `lib/client.js`（保持 exports 兼容），两种解析规则都能命中；`files` 列表加入 `client.js`。
+- 复盘：上一轮我把包根那个 `client.js` 判断成误 cp 的冗余文件并删除，实际它是 DSH 真正加载的入口。这次删除是我造成的回归，已恢复。
+
+**视觉**
+
+- 模型名一律使用 `#111111`，不再随主题变白；为保证黑字可读，暗色模式下的卡片底色改为浅灰 `#E9ECF1`，副标题与徽标使用独立的 `--pcm-card-muted`（暗色下 `#5B6472`）。
+
 ## 0.4.6 — 2026-11-23
 
 UI 细节打磨与双主题适配（仅视觉与交互，未动定位机制）：
