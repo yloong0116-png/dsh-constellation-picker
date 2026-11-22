@@ -127,13 +127,32 @@ npx serve .            # 或 python -m http.server 3000
 
 插件被移除、重新安装或更新后，请**完全退出 DeepSeek Harness 再启动**（`F5` 不够）。
 
-`F5` 只重载渲染进程，host 端的 client bundle 注册表不会重建；此时前端会去请求一个旧 `rev` 的 bundle，得到
-`GET dsh-app://app/plugins/??<pkg>/client.js&rev=… 404`，随后 `web boot: 1 entry did not activate`，表现为启动失败。
+#### 已验证的事实
 
-已用官方 `@deepseek-ai/dsh-api-gateway` 对照验证：正确 `rev` → 200，错误 `rev` 或不带 `rev` → 404 —— 404 表示「这条 rev 的条目不在 host 的表里」，不是文件缺失。
+实测环境：**DeepSeek Harness 0.2.2-rc.1**，Windows 11，2026-11-22/23。
+
+1. **bundle 路由按 rev 精确索引**（我直接发起 HTTP 请求验证）：
+   - 官方 `@deepseek-ai/dsh-api-gateway/client.js` + 正确 `rev` → **200**
+   - 同一 URL + 错误 `rev` → **404**
+   - 同一 URL + 不带 `rev` → **404**
+   结论：`plugins/??<pkg>/client.js&rev=…` 的 404 表示「这个 rev 的条目不在 host 的表里」，不是文件缺失。
+2. **移除/重装后只按 F5 会失败**（用户在 0.2.2-rc.1 上实测，Console 截图佐证）：
+   `GET …/plugins/??dsh-constellation-picker/client.js&rev=… 404` → `web boot: 1 entry did not activate` → 启动失败弹窗。
+3. **完全退出应用后重启即恢复**（同一环境实测）：Console 变为 `slot registered: conversation.input.model` + `picker rendered`，404 消失。
+4. **包本身在该环境下可被 host 解析**：在 profile 目录执行 `import('dsh-constellation-picker')` 成功并导出 `apply`。
+
+#### 推测（尚未被源码或日志证实）
+
+- **「host 的 client bundle 注册表只在应用启动时建立」** —— 这是上述 2、3 两点最合理的解释，但我没有读到 host 端 `clientModules` 的完整实现来证实「F5 期间不会重建」。
+- **为什么那个 404 的 rev 不在表里**：可能是「移除时移除了条目、添加后未重建」，也可能是「重建发生在别的时机」。两种原因表现一致，未区分。
+- 该行为在不同 DSH 版本上是否一致，未验证（只测过 0.2.2-rc.1）。
+
+#### 对其他插件同样成立吗
+
+截图里 `@deepseek-ai/dsh-client-ui-settings-agent-loop`、`dsh-client-ui-directory-picker-native` 也出现 404，但这两个插件当时处于**未激活/禁用**状态，本就不应有 bundle，不能据此推断宿主路由故障。反证：api-gateway 带正确 rev 返回 200。
 
 
-### 卸载与恢复原版
+4551### 卸载与恢复原版
 
 任选其一：
 
