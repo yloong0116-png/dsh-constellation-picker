@@ -22,6 +22,8 @@ window.__ModuleLoader__.load({
   factory: (require) => {
     "use strict";
 
+    /*__INJECT_MODULES__*/
+
     const module = { exports: {} };
     const exports = module.exports;
     Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });

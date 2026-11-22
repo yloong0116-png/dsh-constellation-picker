@@ -1,14 +1,17 @@
 /**
- * Zero-dependency bundler: our modules are a simple linear chain with unique
- * symbol names, so the build is "strip imports/exports, concatenate in order".
+ * Zero-dependency bundler.
  *
- * Keep `ORDER` topologically sorted — core has no deps, controller depends on
- * core, index depends on everything.
+ * Everything — core modules, adapter, UI — is injected **inside** the factory
+ * closure. The bundle's top level therefore contains exactly one statement
+ * (`window.__ModuleLoader__.load({...})`) and zero `const` / `let` / `class`
+ * declarations, so several plugin bundles can share one JavaScript realm
+ * (DSH serves them through a `plugins/??a.js&b.js` combo script) without
+ * colliding on names like `VENDORS`.
  */
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 
-const ORDER = [
+const MODULES = [
   "src/core/vendor.js",
   "src/core/classifier.js",
   "src/core/reasoning.js",
@@ -17,17 +20,30 @@ const ORDER = [
   "src/core/burst.js",
   "src/core/containing-block.js",
   "src/adapter/controller.js",
-  "src/index.js",
 ];
 
+const ENTRY = "src/index.js";
 const OUT = "lib/client.js";
+const INJECT = "/*__INJECT_MODULES__*/";
+const PAD = "    ";
 
-const parts = ORDER.map((file) => {
-  let code = readFileSync(file, "utf8");
-  code = code.replace(/^import[\s\S]*?from\s+["'][^"']+["'];?[ \t]*$/gm, "");
-  code = code.replace(/^export\s+/gm, "");
-  return `// ───────────────────────────── src: ${file}\n${code.trimEnd()}\n`;
-});
+const strip = (code) =>
+  code
+    .replace(/^import[\s\S]*?from\s+["'][^"']+["'];?[ \t]*$/gm, "")
+    .replace(/^export\s+/gm, "")
+    .trimEnd();
+
+const indent = (code) =>
+  code
+    .split("\n")
+    .map((line) => (line.trim() ? PAD + line : line))
+    .join("\n");
+
+const modules = MODULES.map((file) => indent(`// ── ${file}\n${strip(readFileSync(file, "utf8"))}`)).join("\n\n");
+
+let entry = strip(readFileSync(ENTRY, "utf8"));
+if (!entry.includes(INJECT)) throw new Error(`build: ${ENTRY} is missing the ${INJECT} marker`);
+entry = entry.replace(INJECT, modules);
 
 const header = `/**
  * GENERATED FILE — do not edit.
@@ -35,6 +51,12 @@ const header = `/**
  */
 `;
 
+const output = header + entry;
+const offenders = output.split("\n").filter((line) => /^(const|let|class|function)\s/.test(line));
+if (offenders.length) {
+  throw new Error(`build: top-level declarations leaked into the shared realm:\n${offenders.join("\n")}`);
+}
+
 mkdirSync(dirname(OUT), { recursive: true });
-writeFileSync(OUT, header + parts.join("\n"));
-console.log(`built ${OUT} from ${ORDER.length} modules`);
+writeFileSync(OUT, output);
+console.log(`built ${OUT}: ${MODULES.length} modules inlined, 0 top-level declarations`);

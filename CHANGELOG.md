@@ -13,6 +13,16 @@
 >
 > 验证通过则发布 0.4.4 stable；期间只修回归，不加功能。
 
+## 0.4.5 — 2026-11-23
+
+**P0：修复 F5 刷新时的 `Identifier 'VENDORS' has already been declared`**
+
+- **根因（跨插件作用域冲突，不是自身重复声明）**：`build.mjs` 之前把 `src/core/*` 的代码剥掉 import/export 后**拼接在脚本顶层**，于是产物文件顶部出现 `const VENDORS = {...}`、`const TIERS = ...` 等一批顶层词法声明。DSH 的 client 模块通过 `plugins/??a.js&b.js` 这种 combo URL 把多个插件的 bundle 串成一个响应，它们在**同一个 Realm 的同一个脚本作用域**里执行，因此只要任一相邻插件也声明了同名标识符，就会在解析阶段抛 SyntaxError —— 而且这个错误会让整串 combo 的后续模块（例如 `dsh-mnemon`）一起加载失败。
+- **修复**：构建产物改为「零顶层声明」——`build.mjs` 把 8 个模块连同缩进一起注入到 `factory` 闭包内部（`/*__INJECT_MODULES__*/` 标记位），产物顶层只剩一条 `window.__ModuleLoader__.load({...})` 语句。构建脚本自带断言：若产物出现任何顶格 `const` / `let` / `class` / `function` 就构建失败。
+- 没有改名规避、没有 try/catch、没有延迟执行；core / adapter / ui 分层与运行行为完全不变。
+- 新增 4 条 bundle 级回归测试（`tests/bundle.test.mjs`，用 `node:vm` 在同一 Realm 里执行）：产物无顶层声明、同一 Realm 连跑两次不抛错、与另一个声明 `const VENDORS` 的 bundle 共存不抛错、只注册一个模块 id。
+- 定位机制与 0.4.4-rc.2 完全相同，仍待真机四项验证。
+
 ## 0.4.4-rc.2 — 2026-11-23
 
 坐标边界核查（仅此一处修正，其余不动）：
