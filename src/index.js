@@ -15,7 +15,7 @@ import { toChoices, toProviders, filterChoices } from "./core/catalog.js";
 import { seatBox, panelBox, positionedBodyOrigin } from "./core/positioning.js";
 import { createBurstGuard } from "./core/burst.js";
 import { detectContainingBlock } from "./core/containing-block.js";
-import { clockDarkNow } from "./core/theme.js";
+import { clockDarkNow, resolveTheme } from "./core/theme.js";
 import { createPickerController } from "./adapter/controller.js";
 
 window.__ModuleLoader__.load({
@@ -291,6 +291,33 @@ window.__ModuleLoader__.load({
 
       useEffect(ensureStyle, []);
 
+      // Auto mode follows the *host's* theme, not the OS preference. Re-read on
+      // attribute/class mutations, on media changes, and on a slow timer as a
+      // last resort for theme switches that only rewrite CSS variables.
+      useEffect(() => {
+        if (themeMode !== "auto") return undefined;
+        let alive = true;
+        const read = () => {
+          if (!alive) return;
+          const next = resolveTheme(document, window).dark;
+          setTheme((prev) => (prev.dark === next ? prev : { dark: next }));
+        };
+        read();
+        const observer = new MutationObserver(read);
+        for (const el of [document.documentElement, document.body]) {
+          if (el) observer.observe(el, { attributes: true, attributeFilter: ["class", "style", "data-theme", "data-color-mode"] });
+        }
+        const media = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+        if (media?.addEventListener) media.addEventListener("change", read);
+        const timer = setInterval(read, 2000);
+        return () => {
+          alive = false;
+          observer.disconnect();
+          if (media?.removeEventListener) media.removeEventListener("change", read);
+          clearInterval(timer);
+        };
+      }, [themeMode]);
+
       useEffect(
         () => () => {
           if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
@@ -304,25 +331,7 @@ window.__ModuleLoader__.load({
 
       // ── seat: keep the stock chip hidden and mirror its box every frame
       useEffect(() => {
-        if (seatMode) return undefined;
         let hiddenNode = null;
-        const luminance = (color) => {
-          const match = /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?/.exec(color || "");
-          if (!match) return null;
-          if (match[4] !== undefined && Number(match[4]) < 0.2) return null;
-          return (0.2126 * Number(match[1]) + 0.7152 * Number(match[2]) + 0.0722 * Number(match[3])) / 255;
-        };
-        const detectDark = (node) => {
-          let host = node || document.body;
-          for (let depth = 0; depth < 8 && host; depth += 1) {
-            const lum = luminance(getComputedStyle(host).backgroundColor);
-            if (lum !== null) return lum < 0.5;
-            host = host.parentElement;
-          }
-          const bodyLum = luminance(getComputedStyle(document.body).backgroundColor);
-          return bodyLum !== null ? bodyLum < 0.5 : false;
-        };
-
         // If the document itself is transformed, `position: fixed` no longer maps
         // to viewport coordinates — fall back to absolute + scroll compensation.
         const transformedDoc = (() => {
@@ -369,6 +378,7 @@ window.__ModuleLoader__.load({
         }
 
         const locate = () => {
+          if (seatMode) return; // the stock button is gone; the chip anchors itself
           const root = rootRef.current;
           const currentName = (() => {
             const now = stateRef.current ? stateRef.current.current : null;
@@ -422,13 +432,13 @@ window.__ModuleLoader__.load({
               null;
           }
           if (!target) {
-            const dark = detectDark(null);
+            const dark = resolveTheme(document, window).dark;
             setTheme((prev) => (prev.dark === dark ? prev : { dark }));
             const seatNode = seatNodeRef.current;
             if (seatNode) seatNode.style.visibility = "hidden";
             return;
           }
-          const dark = detectDark(target.parentElement);
+          const dark = resolveTheme(document, window).dark;
           setTheme((prev) => (prev.dark === dark ? prev : { dark }));
           if (hiddenNode !== target) {
             if (hiddenNode) {
@@ -461,11 +471,13 @@ window.__ModuleLoader__.load({
 
         /** One read + one write. Cheap enough to call on layout events. */
         const sync = () => {
-          const stock = hiddenNode;
+          // Anchor: the stock button when we are shadowing it, otherwise our own
+          // chip (inline mode) — either way the panel follows the real thing.
+          const stock = seatMode ? triggerRef.current : hiddenNode;
           if (!stock || !stock.isConnected) return;
           const rect = stock.getBoundingClientRect();
           const ctx = { transformed: transformedDoc, ...boxOrigin() };
-          const seatNode = seatNodeRef.current;
+          const seatNode = seatMode ? null : seatNodeRef.current;
           if (seatNode) {
             const box = seatBox(rect, ctx);
             seatNode.style.position = box.position;
@@ -567,7 +579,7 @@ window.__ModuleLoader__.load({
           }
           burst(500, false);
         });
-        observer.observe(document.body, { childList: true, subtree: true });
+        if (!seatMode) observer.observe(document.body, { childList: true, subtree: true });
         return () => {
           stopLoop();
           burstGuard.reset();
@@ -656,7 +668,11 @@ window.__ModuleLoader__.load({
           }
           if (!wrap) return;
           const wrapRect = wrap.getBoundingClientRect();
-          const delta = Math.round(window.innerHeight - 18 - wrapRect.bottom);
+          const toBottom = Math.round(window.innerHeight - 18 - wrapRect.bottom);
+          // Only move enough to give the panel room; a full slide to the bottom
+          // makes the composer look stranded.
+          const cap = Math.round(window.innerHeight * 0.26);
+          const delta = Math.min(toBottom, cap);
           if (delta < 6) return;
           const titles = [];
           for (const node of document.querySelectorAll("h1, h2, h3")) {
