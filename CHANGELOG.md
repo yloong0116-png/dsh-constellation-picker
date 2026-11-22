@@ -2,6 +2,17 @@
 
 本项目从「元素周期表选择器」演进为「多厂商星系矩阵」，版本号与结构改动对应如下。
 
+## 0.4.3 — 2026-11-23
+
+针对 0.4.2 定位机制的边界审查与修复：
+
+- **burst 窗口不再无上限延长**（P0）：此前每个 MutationObserver 回调都用 `Math.max` 把结束时间往后推，对话流式输出（DOM 每帧变化）会让 rAF 事实上永久运行。现区分信号等级——非紧急信号（DOM 变更）最多延长 3 次，且两次窗口之间强制冷却 800ms；紧急信号（`pointerdown` / `focusin` / `transitionend` / `animationend` / `resize`）不受限，因为它们稀有且语义明确。
+- **containing block 检测补全**（P1）：原来只查 `document.body` 的 `transform`。现在同时检查 `<html>` 与 `<body>`，并覆盖 `filter` / `perspective` / `will-change`(transform|filter|perspective) / `contain`(paint|layout|strict|content) —— 这些都会让 `position: fixed` 相对该元素而非视口。
+- **缓存锚点增加有效性校验**（P1）：`isConnected` 为真不代表它还是模型位。现在复用前校验尺寸、是否在视口附近、文本是否仍含档位词或当前模型名，不合格则丢弃缓存重新走结构特征搜索。
+- **找不到锚点时隐藏胶囊**（P2）：此前会停在最后一次的坐标上漂移；现在直接 `visibility: hidden`，重新找到锚点即恢复。
+- 修复构建期语法错误：`extends` 是严格模式保留字，`createBurstGuard` 内部改用 `extensions`。
+- 新增 `tests/lifecycle.test.mjs`（7 条）：burst 封顶、冷却、紧急信号优先、窗口过期后计数重置、containing block 四类属性。
+
 ## 0.4.2 — 2026-11-23
 
 - 修复：新建对话后胶囊不再跟随输入框。根因是「新建对话」属于布局重排，不产生 resize / scroll 事件，ResizeObserver 只报告尺寸变化而这里尺寸没变、只是位置变了；同时 MutationObserver 回调在锚点仍连接时直接 return，导致整条同步链路拿不到信号。

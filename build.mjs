@@ -14,6 +14,8 @@ const ORDER = [
   "src/core/reasoning.js",
   "src/core/catalog.js",
   "src/core/positioning.js",
+  "src/core/burst.js",
+  "src/core/containing-block.js",
   "src/adapter/controller.js",
   "src/index.js",
 ];

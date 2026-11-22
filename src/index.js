@@ -13,6 +13,8 @@ import { TIERS } from "./core/classifier.js";
 import { effortsOf, effortLabel } from "./core/reasoning.js";
 import { toChoices, toProviders, filterChoices } from "./core/catalog.js";
 import { seatBox, panelBox } from "./core/positioning.js";
+import { createBurstGuard } from "./core/burst.js";
+import { detectContainingBlock } from "./core/containing-block.js";
 import { createPickerController } from "./adapter/controller.js";
 
 window.__ModuleLoader__.load({
@@ -255,8 +257,7 @@ window.__ModuleLoader__.load({
         // to viewport coordinates — fall back to absolute + scroll compensation.
         const transformedDoc = (() => {
           try {
-            const t = getComputedStyle(document.body).transform;
-            return Boolean(t) && t !== "none";
+            return detectContainingBlock(window, document);
           } catch {
             return false;
           }
@@ -291,7 +292,16 @@ window.__ModuleLoader__.load({
             }
             return null;
           })();
-          let target = hiddenNode && hiddenNode.isConnected ? hiddenNode : null;
+          let target = null;
+          if (hiddenNode && hiddenNode.isConnected) {
+            const box = hiddenNode.getBoundingClientRect();
+            const text = (hiddenNode.textContent || "").replace(/\s+/g, " ");
+            const onScreen = box.width >= 36 && box.height >= 16 && box.bottom > -80 && box.top < window.innerHeight + 80;
+            const looksRight =
+              /(low|medium|high|extra|max|minimal|请选择模型|select model)/i.test(text) ||
+              Boolean(currentName && text.includes(currentName));
+            if (onScreen && looksRight) target = hiddenNode;
+          }
           if (!target) {
             // Structure first: the model seat is a popup-ish control that sits on
             // the composer footer next to the textarea. Only fall back to labels.
@@ -319,6 +329,8 @@ window.__ModuleLoader__.load({
           if (!target) {
             const dark = detectDark(null);
             setTheme((prev) => (prev.dark === dark ? prev : { dark }));
+            const seatNode = seatNodeRef.current;
+            if (seatNode) seatNode.style.visibility = "hidden";
             return;
           }
           const dark = detectDark(target.parentElement);
@@ -332,6 +344,8 @@ window.__ModuleLoader__.load({
             target.style.visibility = "hidden";
             target.setAttribute("data-pcm-hidden", "1");
           }
+          const seatNode = seatNodeRef.current;
+          if (seatNode && seatNode.style.visibility === "hidden") seatNode.style.visibility = "";
           const rect = target.getBoundingClientRect();
           setSeat((prev) => {
             if (prev && Math.abs(prev.width - rect.width) < 1 && Math.abs(prev.height - rect.height) < 1) return prev;
@@ -413,8 +427,9 @@ window.__ModuleLoader__.load({
           cancelAnimationFrame(raf);
           raf = 0;
         };
-        const burst = (ms) => {
-          burstUntil = Math.max(burstUntil, performance.now() + ms);
+        const burstGuard = createBurstGuard(3);
+        const burst = (ms, urgent = true) => {
+          burstUntil = burstGuard.next(performance.now(), ms, urgent);
           startLoop();
         };
         // Kept for the open/close effect: panel closing still needs frames while
@@ -455,11 +470,12 @@ window.__ModuleLoader__.load({
               }, 60);
             }
           }
-          burst(500);
+          burst(500, false);
         });
         observer.observe(document.body, { childList: true, subtree: true });
         return () => {
           stopLoop();
+          burstGuard.reset();
           if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
           loopRef.current = null;
           observer.disconnect();
