@@ -97,6 +97,8 @@ interface PickerProps {
 | --- | --- |
 | **DeepSeek Harness (DSH)** | 宿主平台与接口提供方。本项目的槽位注册（`slots`）、模型目录（`modelDirectories`）、切换链路（`directory.select`）与 React 运行时全部由 DSH 提供；没有它，这份代码无从存在。 |
 | **YG** | 作者。交互设计、实现与文档。 |
+| **Codex** | 协作评审：代码审查、架构与重构建议（core/adapter 分层、测试与类型契约的落地讨论）。 |
+| **Gemini** | 协作评审：交互与视觉方案的设计反馈、接手性（contributor experience）评估。 |
 
 欢迎把你的名字加进这张表——提交一个有实质改动的 PR 即可。
 
