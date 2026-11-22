@@ -13,6 +13,11 @@
 >
 > 验证通过则发布 0.4.4 stable；期间只修回归，不加功能。
 
+## 0.4.9 — 2026-11-23
+
+- 修复模型位注册失败：`slot "conversation.input.model.label" is already declared`。早期为了对齐官方声明，给模型位 slot 加了 `children` 子槽，与官方 model-selection 的子槽重名冲突，导致注册抛错并退化到 `conversation.input.dock`（表现为胶囊位置不对）。现只保留 `priority: -100`。
+- 说明：F5 后出现的 `client.js 404` 是 host 没有重新扫描 bundle 表（移除/添加插件之后必须完全重启应用，F5 不够）；本次是重启后残留的注册冲突。
+
 ## 0.4.8 — 2026-11-23
 
 - 面板右上角的主题按钮从「明/暗」两态改为**四态循环**：`跟随 DSH 主题 → 跟随系统时间 → 白昼 → 黑夜`，图标依次为 ◐ / ⏱ / ☀ / ☾，`title` 与 `aria-label` 显示当前模式。

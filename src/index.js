@@ -1214,10 +1214,7 @@ window.__ModuleLoader__.load({
             {
               name: slotName,
               id: "constellation-picker",
-              ...(slotName === "conversation.input.model" ? { locale: "model", priority: -100 } : {}),
-              ...(slotName === "conversation.input.model"
-                ? { children: { "conversation.input.model.label": { kind: "single", scope: "session", inline: true } } }
-                : {}),
+              ...(slotName === "conversation.input.model" ? { priority: -100 } : {}),
               inject: (sessionId) => {
                 const directory = models.directoryFor(sessionId);
                 let available = true;
