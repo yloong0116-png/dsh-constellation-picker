@@ -2,6 +2,14 @@
 
 一个为 **DeepSeek Harness (DSH)** 打造的实验性模型选择器，把单调的模型下拉框换成「多厂商 × 能力梯度」的矩阵面板：厂商成列、能力分三层（旗舰推理 / 全能主力 / 轻量极速），推理深度用 Low / Medium / High / Extra 的气泡完成。
 
+<p align="center">
+  <img src="./assets/demo.gif" alt="Model Constellation Matrix — 交互演示" width="820" />
+</p>
+
+<p align="center">
+  <sub>10fps 精简预览（GIF 10.2 MB）· 想看 60fps 原始画质，<a href="./assets/demo.mp4">下载 demo.mp4（5.4 MB）</a></sub>
+</p>
+
 > **这不是成品，是一个起点。** 下面这段是写给接手的人看的，不是免责声明。
 
 ## Project Status & Design Philosophy
