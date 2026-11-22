@@ -263,8 +263,23 @@ window.__ModuleLoader__.load({
           }
         })();
         const seatPosition = transformedDoc ? "absolute" : "fixed";
-        const scrollX = () => (transformedDoc ? window.scrollX : 0);
-        const scrollY = () => (transformedDoc ? window.scrollY : 0);
+        /**
+         * Where does an `absolute` child of <body> actually start?
+         *  - body static  -> initial containing block: viewport origin + scroll
+         *  - body positioned (relative/absolute/...) -> body's border box, and the
+         *    scroll offset is already baked into its rect
+         */
+        const boxOrigin = () => {
+          if (!transformedDoc) return { origin: { x: 0, y: 0 }, scroll: { x: 0, y: 0 } };
+          try {
+            const positioned = getComputedStyle(document.body).position !== "static";
+            if (!positioned) return { origin: { x: 0, y: 0 }, scroll: { x: window.scrollX, y: window.scrollY } };
+            const rect = document.body.getBoundingClientRect();
+            return { origin: { x: rect.left, y: rect.top }, scroll: { x: 0, y: 0 } };
+          } catch {
+            return { origin: { x: 0, y: 0 }, scroll: { x: window.scrollX, y: window.scrollY } };
+          }
+        };
 
         const composerHost = () => {
           let host = document.querySelector("textarea, [contenteditable='true']");
@@ -296,11 +311,18 @@ window.__ModuleLoader__.load({
           if (hiddenNode && hiddenNode.isConnected) {
             const box = hiddenNode.getBoundingClientRect();
             const text = (hiddenNode.textContent || "").replace(/\s+/g, " ");
-            const onScreen = box.width >= 36 && box.height >= 16 && box.bottom > -80 && box.top < window.innerHeight + 80;
-            const looksRight =
+            // Structure first: an icon-only or aria-relabelled seat must still pass.
+            const structural = Boolean(
+              hiddenNode.getAttribute("aria-haspopup") || hiddenNode.getAttribute("aria-expanded"),
+            );
+            const byLabel =
               /(low|medium|high|extra|max|minimal|请选择模型|select model)/i.test(text) ||
               Boolean(currentName && text.includes(currentName));
-            if (onScreen && looksRight) target = hiddenNode;
+            const sized = box.width >= 20 && box.height >= 14;
+            // Generous vertical range: during scroll the seat may sit off-screen,
+            // that alone is not a reason to drop a valid anchor.
+            const near = box.bottom > -window.innerHeight && box.top < window.innerHeight * 2;
+            if (sized && near && (structural || byLabel)) target = hiddenNode;
           }
           if (!target) {
             // Structure first: the model seat is a popup-ish control that sits on
@@ -369,7 +391,7 @@ window.__ModuleLoader__.load({
           const stock = hiddenNode;
           if (!stock || !stock.isConnected) return;
           const rect = stock.getBoundingClientRect();
-          const ctx = { transformed: transformedDoc, scrollX: window.scrollX, scrollY: window.scrollY };
+          const ctx = { transformed: transformedDoc, ...boxOrigin() };
           const seatNode = seatNodeRef.current;
           if (seatNode) {
             const box = seatBox(rect, ctx);

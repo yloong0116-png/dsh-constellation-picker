@@ -7,10 +7,12 @@
  */
 export function seatBox(rect, ctx = {}) {
   const transformed = ctx.transformed === true;
+  const origin = ctx.origin || { x: 0, y: 0 };
+  const scroll = ctx.scroll || (transformed ? { x: ctx.scrollX || 0, y: ctx.scrollY || 0 } : { x: 0, y: 0 });
   return {
     position: transformed ? "absolute" : "fixed",
-    left: rect.left + (transformed ? ctx.scrollX || 0 : 0),
-    top: rect.top + (transformed ? ctx.scrollY || 0 : 0),
+    left: rect.left - origin.x + scroll.x,
+    top: rect.top - origin.y + scroll.y,
     width: rect.width,
     height: rect.height,
   };
@@ -31,8 +33,8 @@ export function panelBox(input) {
     margin = 14,
   } = input;
   const transformed = input.transformed === true;
-  const scrollX = transformed ? input.scrollX || 0 : 0;
-  const scrollY = transformed ? input.scrollY || 0 : 0;
+  const origin = input.origin || { x: 0, y: 0 };
+  const scroll = input.scroll || (transformed ? { x: input.scrollX || 0, y: input.scrollY || 0 } : { x: 0, y: 0 });
   const center = rect.left + rect.width / 2;
   const maxLeft = Math.max(margin, viewportWidth - panelWidth - margin);
   const left = Math.max(margin, Math.min(Math.round(center - panelWidth / 2), maxLeft));
@@ -41,8 +43,8 @@ export function panelBox(input) {
   if (transformed) {
     return {
       position: "absolute",
-      left: left + scrollX,
-      top: rect.top + scrollY - gap - panelHeight,
+      left: left - origin.x + scroll.x,
+      top: rect.top - origin.y + scroll.y - gap - panelHeight,
       bottom: null,
       maxHeight,
     };

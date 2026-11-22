@@ -2,6 +2,14 @@
 
 本项目从「元素周期表选择器」演进为「多厂商星系矩阵」，版本号与结构改动对应如下。
 
+## 0.4.4 — 2026-11-23
+
+第二轮定位审查的两处修正（均为代码层面可证的缺陷，非推测）：
+
+- **锚点校验不再只认文本**：缓存的锚点此前必须「文本含档位词或当前模型名」才被复用，一旦 DSH 把模型位改成纯图标 / 仅 aria-label 就会被误丢弃。现在结构信号（`aria-haspopup` / `aria-expanded`）与文本命中取**或**关系；尺寸下限从 36×16 放宽到 20×14（覆盖图标态），视口范围从 ±80px 放宽到「上下各一屏」，滚动中不再因锚点暂时离屏而丢弃。
+- **absolute 分支的 containing block 原点修正**：此前直接用 `scrollX/scrollY` 当作 `absolute` 坐标系，隐含假设 `<body>` 是 `static`。当 body 被设为 `position: relative`（或 absolute/fixed）时，absolute 子元素相对的是 body 的 border box，而 body 的 margin 偏移会让胶囊整体偏移（默认 margin 8px 就会偏 8px）。现在按实际 `offsetParent` 分两种情况：body 静态 → 视口原点 + 滚动；body 定位 → 减去 body 的 `getBoundingClientRect()` 左上角（滚动已包含在 rect 内，不再叠加）。
+- 新增 2 条几何测试：positioned body 下 `seatBox` / `panelBox` 的坐标。
+
 ## 0.4.3 — 2026-11-23
 
 针对 0.4.2 定位机制的边界审查与修复：

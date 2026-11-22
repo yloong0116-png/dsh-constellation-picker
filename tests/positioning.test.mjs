@@ -60,3 +60,28 @@ test("panelBox: document mode anchors above the seat with the panel height", () 
   assert.equal(box.top, 700 + 1000 - 12 - 300);
   assert.equal(box.bottom, null);
 });
+
+test("seatBox: positioned body — origin is subtracted, scroll is already baked in", () => {
+  const box = seatBox(
+    { left: 100, top: 200, width: 180, height: 28 },
+    { transformed: true, origin: { x: 8, y: 8 }, scroll: { x: 0, y: 0 } },
+  );
+  assert.equal(box.position, "absolute");
+  assert.equal(box.left, 92);
+  assert.equal(box.top, 192);
+});
+
+test("panelBox: positioned body keeps the panel over the seat", () => {
+  const box = panelBox({
+    rect: { left: 500, top: 700, width: 200, height: 28 },
+    panelWidth: 800,
+    panelHeight: 300,
+    viewportWidth: 1400,
+    viewportHeight: 900,
+    transformed: true,
+    origin: { x: 8, y: 8 },
+    scroll: { x: 0, y: 0 },
+  });
+  assert.equal(box.left, 200 - 8);
+  assert.equal(box.top, 700 - 8 - 12 - 300);
+});
