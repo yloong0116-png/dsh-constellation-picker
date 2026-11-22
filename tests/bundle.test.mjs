@@ -62,3 +62,10 @@ test("bundle: factory executes with stub react / react-dom without throwing", ()
   assert.equal(typeof exported.apply, "function");
   assert.equal(exported.inject.join(","), "slots,modelDirectories");
 });
+
+test("bundle: every THEME_MODE_* reference has a definition", () => {
+  const used = new Set([...bundle.matchAll(/THEME_MODE_[A-Z]+/g)].map((m) => m[0]));
+  for (const name of used) {
+    assert.ok(bundle.includes(`const ${name} =`), `${name} is used but never defined`);
+  }
+});

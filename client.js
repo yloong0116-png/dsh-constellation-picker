@@ -21,6 +21,7 @@
 
 
 
+
 window.__ModuleLoader__.load({
   id: "dsh-constellation-picker",
   factory: (require) => {
@@ -384,6 +385,26 @@ window.__ModuleLoader__.load({
       return check(doc.documentElement) || check(doc.body);
     }
 
+    // ── src/core/theme.js
+    /** Time-of-day theme rule: dark from 18:00 to 05:59, light from 06:00 to 17:59. */
+    const DARK_FROM_HOUR = 18;
+    const LIGHT_FROM_HOUR = 6;
+
+    /**
+     * @param {number} hour 0–23 local hour
+     * @returns {boolean} true when the clock mode should use the dark palette
+     */
+    function clockDark(hour) {
+      const h = Math.floor(Number(hour));
+      if (!Number.isFinite(h)) return false;
+      return h >= DARK_FROM_HOUR || h < LIGHT_FROM_HOUR;
+    }
+
+    /** Which palette the clock mode wants right now. */
+    function clockDarkNow(date = new Date()) {
+      return clockDark(date.getHours());
+    }
+
     // ── src/adapter/controller.js
     /**
      * Framework-agnostic picker controller.
@@ -650,8 +671,23 @@ window.__ModuleLoader__.load({
       const [error, setError] = useState(null);
       const [seat, setSeat] = useState(null);
       const [theme, setTheme] = useState({ dark: false });
-      const [themeOverride, setThemeOverride] = useState(null);
-      const dark = themeOverride === null ? theme.dark : themeOverride;
+      const [themeMode, setThemeMode] = useState("auto"); // auto | clock | light | dark
+      const [clockDark, setClockDark] = useState(() => clockDarkNow());
+      const dark =
+        themeMode === "clock"
+          ? clockDark
+          : themeMode === "light"
+            ? false
+            : themeMode === "dark"
+              ? true
+              : theme.dark;
+
+      useEffect(() => {
+        if (themeMode !== "clock") return undefined;
+        setClockDark(clockDarkNow());
+        const timer = setInterval(() => setClockDark(clockDarkNow()), 60 * 1000);
+        return () => clearInterval(timer);
+      }, [themeMode]);
       const [query, setQuery] = useState("");
       const [cursor, setCursor] = useState(-1);
       const [subCursor, setSubCursor] = useState(0);
@@ -1454,10 +1490,14 @@ window.__ModuleLoader__.load({
           {
             className: "pcm-theme",
             type: "button",
-            title: "切换明暗预览",
-            onClick: () => setThemeOverride(dark ? false : true),
+            title: `主题：${THEME_MODE_LABEL[themeMode]}（点击切换）`,
+            "aria-label": `主题：${THEME_MODE_LABEL[themeMode]}`,
+            onClick: () =>
+              setThemeMode((mode) =>
+                mode === "auto" ? "clock" : mode === "clock" ? "light" : mode === "light" ? "dark" : "auto",
+              ),
           },
-          dark ? "☾" : "☀",
+          THEME_MODE_ICON[themeMode],
         ),
         h("button", { className: "pcm-x", type: "button", onClick: closePanel, "aria-label": "关闭" }, "✕"),
         head,
@@ -1559,6 +1599,10 @@ window.__ModuleLoader__.load({
         ),
       );
     }
+
+    /** Theme modes for the panel theme control, in cycle order. */
+    const THEME_MODE_LABEL = { auto: "跟随 DSH 主题", clock: "跟随系统时间", light: "白昼", dark: "黑夜" };
+    const THEME_MODE_ICON = { auto: "◐", clock: "⏱", light: "☀", dark: "☾" };
 
     /** Keeps a render crash inside the picker: the composer keeps working. */
     class PickerBoundary extends react.Component {

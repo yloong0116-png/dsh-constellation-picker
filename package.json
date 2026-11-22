@@ -1,6 +1,6 @@
 {
   "name": "dsh-constellation-picker",
-  "version": "0.4.7",
+  "version": "0.4.8",
   "description": "An experimental multi-provider model selector plugin for DeepSeek Harness featuring a constellation capability matrix and synchronized morphing animations.",
   "keywords": [
     "dsh",
@@ -25,8 +25,8 @@
   },
   "scripts": {
     "build": "node build.mjs",
-    "test": "node --test tests/core.test.mjs tests/positioning.test.mjs tests/lifecycle.test.mjs tests/bundle.test.mjs",
-    "check": "node build.mjs && node --check lib/client.js && node --test tests/core.test.mjs tests/positioning.test.mjs tests/lifecycle.test.mjs tests/bundle.test.mjs"
+    "test": "node --test tests/core.test.mjs tests/positioning.test.mjs tests/lifecycle.test.mjs tests/bundle.test.mjs tests/theme.test.mjs",
+    "check": "node build.mjs && node --check lib/client.js && node --test tests/core.test.mjs tests/positioning.test.mjs tests/lifecycle.test.mjs tests/bundle.test.mjs tests/theme.test.mjs"
   },
   "files": [
     "lib",
