@@ -24,6 +24,9 @@
     "index.js",
     "cordis.patch.yml",
     "README.md",
+    "ARCHITECTURE.md",
+    "CONTRIBUTING.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "dsh": {

@@ -1,78 +1,87 @@
 # dsh-constellation-picker
 
-一个为 **DeepSeek Harness (DSH)** 客户端打造的实验性模型选择器 UI 插件。
+一个为 **DeepSeek Harness (DSH)** 打造的实验性模型选择器，把单调的模型下拉框换成「多厂商 × 能力梯度」的矩阵面板：厂商成列、能力分三层（旗舰推理 / 全能主力 / 轻量极速），推理深度用 Low / Medium / High / Extra 的气泡完成。
 
-本项目试图打破传统长列表下拉框的交互局限，在保留丝滑展开动效与多级推理预算调节（`Low` / `Medium` / `High` / `Extra`）的基础上，将多厂商模型（DeepSeek、OpenAI、Gemini、Kimi 等）重构为一张直观的**“多厂商星系能力矩阵（Constellation Matrix）”**。
+> **这不是成品，是一个起点。** 下面这段是写给接手的人看的，不是免责声明。
 
----
+## Project Status & Design Philosophy
 
-## ⚠️ 致歉与设计缺陷说明（Honest Disclaimer）
+This project is an experimental foundation, not a finished product.
 
-在您使用或 Fork 本项目之前，作者想先坦诚地表达**歉意**：
+The current implementation is only **one possible interpretation** of a better model-selection experience. You are encouraged to refactor it, redesign it, replace individual components, or build an entirely new interface on top of the existing model-selection logic — a VS Code style command palette, a capability quadrant chart, a restrained list, whatever you think is better.
 
-**当前版本的 UI 与交互设计仍存在诸多不成熟与缺陷。**
+**We value maintainability, extensibility, and creative freedom over preserving the original implementation.**
 
-* **设计演进的妥协**：本项目最初的灵感源于极具视觉张力的“化学元素周期表”选择器，但随后意识到该隐喻与 DeepSeek Harness 多厂商聚合的产品定位存在割裂。为了强行适配多家厂商而重构出的现有“星系能力矩阵”，在视觉隐喻的纯粹性、信息密度与边缘场景的排版美感上，依然显得有些生硬和妥协。
-* **动画与 DOM 耦合的粗糙实现**：为了实现新对话状态下“输入框下移 + 胶囊锚定 + 面板同步放大”的联动效果，部分 DOM 挂载与样式覆盖逻辑写得较为激进，在极端窗口尺寸或客户端版本更新时可能会出现布局错位。
-* **配置灵活性不足**：目前厂商轨道与能力梯度的映射仍偏静态，面对海量自定义模型或本地模型时的扩展体验还不够优雅。
+中文：当前实现只是“更好的模型选择体验”的一种解法。你可以重构、重设计、替换任意组件，甚至只复用它的模型目录与切换逻辑、完全不用这套 UI——这些都算项目成功，不算跑偏。
 
-**这只是一个抛砖引玉的原型（Proof of Concept），而非最终答案。** 我非常希望能有更懂交互设计、视觉美学与前端工程的社区开发者参与进来，大刀阔斧地推翻重来或进行二次再设计（Redesign），让它真正配得上 DeepSeek Harness 的使用体验！
+唯一希望后来者遵守的一条：**不要让接手的人必须先理解作者的审美，才能理解这份代码。**
 
----
+## 30 秒上手
+
+| 我想… | 去哪 |
+| --- | --- |
+| 先看看长什么样 | 本地起个静态服务器，打开 `demo.html`（自带 mock 模型目录，不需要 DSH） |
+| 理解代码结构 | [`ARCHITECTURE.md`](./ARCHITECTURE.md) —— 分层图、数据流、props 契约、哪些地方改了会炸 |
+| 动手改 | [`CONTRIBUTING.md`](./CONTRIBUTING.md) —— 环境、本地调试、三类改动的风险边界、提交规范 |
+| 装进自己的 DSH | 见 CONTRIBUTING 的「装进 DSH」一节（复制到 profile + 登记 `bundles`） |
+| 知道现在有哪些坑 | 下面的 Known Issues & Roadmap |
+
+## 三层自由度
+
+| 层 | 内容 | 自由度 |
+| --- | --- | --- |
+| **Core** | 槽位注册、原生按钮定位、`directory.select()` 切换 | 谨慎：改错表现为“插件消失” |
+| **Config** | `VENDORS` / `EXPECTED` / `TIERS`（厂商品牌、未接入占位、能力分类规则） | 自由扩展：加厂商、调分类不用碰组件 |
+| **UI** | 面板布局、矩阵、卡片、动画、配色 | 鼓励推翻：只要满足 `PeriodicPicker` 的 props 契约 |
+
+UI 层的数据契约（实现一个新 UI 只需要这个）：
+
+```ts
+interface PickerProps {
+  available: boolean;
+  directory: { subscribe(fn): () => void; getSnapshot(): State };
+  load(): void;
+  select(sel: { provider: string; model: string; reasoningEffort?: string }): Promise<{ ok: boolean; error?: any }>;
+  locked?: boolean;
+}
+```
 
 ## ✨ 现有特性
 
-* **多厂商能力矩阵**：按厂商分列（DeepSeek / OpenAI / Gemini / Kimi 等），按能力梯度分层（旗舰推理 / 全能主力 / 轻量极速），支持未激活模型暗态占位与悬停实时大卡片预览。
-* **推理深度气泡调节**：内置 `Low`、`Medium`、`High`、`Extra` 四档思考预算选择器（带 1~4 格信号柱指示器），支持边缘自动避让弹出。
-* **同频联动展开动效**：新对话居中状态下，点击胶囊可触发“欢迎语淡出 + 输入框下移 + 面板锚点放大”的同步过渡动画。
-* **键盘与搜索**：面板内可实时过滤模型（名称 / 厂商），`↑` `↓` 移动高亮、`Enter` 确认、`Esc` 逐层退出。
-* **崩溃隔离**：整个选择器包在 ErrorBoundary 内，渲染异常时自动还原原生模型按钮，不会拖垮输入框。
-* **独立预览模式**：内置 `demo.html`，无需启动完整客户端即可在浏览器中直接调试和预览交互动画。
-
----
+* **多厂商能力矩阵**：按厂商分列，按能力梯度分层，未接入厂商暗态占位；悬停任意卡片实时刷新顶部预览。
+* **推理深度气泡**：`Low` / `Medium` / `High` / `Extra` 四档（带 1~4 格信号柱），边缘自动避让；不区分深度的模型点击即选中。
+* **同频展开动效**：新对话居中态触发「欢迎语淡出 + 输入框下移 + 面板自胶囊锚点放大」。
+* **键盘与搜索**：实时过滤，`↑` `↓` 移动、`Enter` 确认、`Esc` 逐层退出。
+* **崩溃隔离**：整棵子树包在 ErrorBoundary 内，异常时还原原生按钮，不拖垮输入框。
+* **深浅主题**：胶囊按输入框背景亮度自动配色。
 
 ## 🧭 Known Issues & Roadmap
 
-以下是作者自己复盘出的 15 条技术债，按“会坏的 → 用起来硌手的 → 工程债”排序，欢迎认领任意一条发起 PR。
+15 条技术债，按「会坏的 → 用起来硌手的 → 工程债」排序，欢迎认领任意一条。
 
-### A. 结构性脆弱点（优先）
+### A. 结构性脆弱点
 
-1. ~~**定位原生按钮依赖文本匹配**~~ → 已改为结构特征优先（`aria-haspopup` + 与 textarea 的兄弟关系）、缓存节点 + MutationObserver 兜底，文本匹配降为最后兜底。
-2. **`priority: -100` 抢 single slot**：依赖 DSH 内部“同名低优先级覆盖”的规则，版本升级若改规则会直接失效；目前失败时会静默退化到 `conversation.input.dock`，用户只感知为“位置跑到角落”。
+1. ~~**定位原生按钮依赖文本匹配**~~ → 已改为结构特征优先（`aria-haspopup` + composer 容器内的兄弟关系）、缓存节点 + MutationObserver 兜底，文本匹配降为最后兜底。
+2. **`priority: -100` 抢 single slot**：依赖 DSH 内部“同名低优先级覆盖”规则，升级若改规则会失效；失败时静默退化到 `conversation.input.dock`。
 3. ~~**rAF 循环常驻**~~ → 已改为仅在面板打开时逐帧同步；关闭态由 resize / scroll / ResizeObserver 事件驱动，`visibilitychange` 自动暂停。
 4. ~~**缺少错误边界**~~ → 已包裹 `PickerBoundary`，崩溃时恢复原生按钮并降级为不渲染。
 
 ### B. 体验缺口
 
 5. ~~**没有键盘导航与搜索**~~ → 已加搜索框 + `↑`/`↓`/`Enter`，但尚未支持 Tab 焦点环与屏幕阅读器播报。
-6. **三档归类靠模型名正则**（`reason|pro|flash|mini`）：厂商命名一变就归错档，应改为读取目录元数据，或在配置中显式覆盖。（档位气泡已不再假设数组下标 = Low/Extra，非标准命名的 effort 不再套用预设文案）
-7. **配置未真正解耦**：`VENDORS` / `EXPECTED` / `TIERS` 仍写在 `lib/client.js` 顶部，没有抽成独立 JSON 或 host 端配置路由。
-8. **面板固定白卡**：暗色主题下胶囊已适配，但面板仍是白色，视觉割裂。
-9. **收起动画与展开不同频**：展开 320ms 弹性曲线，收起仍是 175ms 后卸载（定时器已改为可取消，打开时会正确取消关闭）；两端曲线尚未统一。
+6. **三档归类靠模型名正则**（`reason|pro|flash|mini`）：厂商命名一变就归错档，应改为读取目录元数据或配置覆盖。（档位气泡已不再假设数组下标 = Low/Extra）
+7. **配置未真正解耦**：`VENDORS` / `EXPECTED` / `TIERS` 仍写在 `lib/client.js` 顶部，没有独立 JSON 与 host 端配置路由。
+8. **面板固定白卡**：暗色主题下胶囊已适配，面板仍是白色，视觉割裂。
+9. **收起动画与展开不同频**：展开 320ms 弹性曲线，收起仍是 175ms 后卸载（定时器已可取消）；两端曲线尚未统一。
 10. **没有“最近使用 / 收藏”**：跨厂商切换每次都要重新找位置。
 
 ### C. 工程与发布
 
-11. **单文件 900 行、无构建、无类型、无测试**：应拆分为 `config / seat / panel / menu` 模块并补 types 与单测。
-12. **README 缺视觉证明**：没有 GIF / 截图，路人无法一眼看懂效果（欢迎贡献录制）。
-13. **`demo.html` 依赖 esm.sh CDN**：离线环境打不开，应把 React 打进 demo 或提供纯 DOM 版本。
-14. **无 lint / format / CI / changelog**：版本号手写，与改动不严格对应。
-15. **硬编码中文**：未接 DSH 的 locale 服务，英文用户看到的是中文文案。
-
----
-
-## 🤝 欢迎参与改造（Contributing & Redesign）
-
-无论你想做的是：
-
-1. **彻底重构视觉方案**（比如改成更极客的终端指令面板、二维能力象限图，或是更克制的极简风）；
-2. **优化动效物理曲线与响应式布局**；
-3. **解耦 DOM 注入逻辑，适配更多自定义模型目录**；
-4. **认领上面任意一条 Roadmap**；
-
-都极其欢迎直接提交 **Issue** 分享你的设计草图，或直接发起 **Pull Request**！期待看到社区赋予它全新的生命力。
-
----
+11. **单文件 1000+ 行、无构建、无类型、无测试**：拆分方案见 `CONTRIBUTING.md` 的「计划中的重构」。
+12. **缺视觉证明**：没有 GIF / 截图（欢迎贡献录制）。
+13. **`demo.html` 依赖 esm.sh CDN**：离线打不开，需要 vendored React 或纯 DOM 版。
+14. **无 lint / format / CI / changelog**：版本号手写。
+15. **硬编码中文**：未接 DSH 的 locale 服务。
 
 ## 📄 License
 
