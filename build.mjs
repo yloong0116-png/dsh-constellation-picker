@@ -20,6 +20,7 @@ const MODULES = [
   "src/core/burst.js",
   "src/core/containing-block.js",
   "src/core/theme.js",
+  "src/core/interaction.js",
   "src/adapter/controller.js",
 ];
 

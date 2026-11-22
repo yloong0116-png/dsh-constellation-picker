@@ -16,6 +16,7 @@ import { seatBox, panelBox, positionedBodyOrigin } from "./core/positioning.js";
 import { createBurstGuard } from "./core/burst.js";
 import { detectContainingBlock } from "./core/containing-block.js";
 import { clockDarkNow, resolveTheme } from "./core/theme.js";
+import { overlayAction } from "./core/interaction.js";
 import { createPickerController } from "./adapter/controller.js";
 
 window.__ModuleLoader__.load({
@@ -192,6 +193,9 @@ window.__ModuleLoader__.load({
 
 .pcm-theme{position:absolute;top:12px;right:44px;width:26px;height:26px;border:0;border-radius:9px;
   background:transparent;cursor:pointer;font-size:13px;line-height:1}
+.pcm-back{flex:0 0 auto;width:20px;height:20px;border:0;border-radius:7px;background:transparent;
+  color:var(--pcm-muted,#94a3b8);cursor:pointer;font-size:12px;line-height:1;padding:0}
+.pcm-back:hover{background:var(--pcm-hover,#f1f5f9);color:var(--pcm-name,#0f172a)}
 `;
 
     function ensureStyle() {
@@ -1129,6 +1133,17 @@ window.__ModuleLoader__.load({
               "div",
               { className: "pcm-menu-head" },
               h(
+                "button",
+                {
+                  className: "pcm-back",
+                  type: "button",
+                  title: "返回模型列表",
+                  "aria-label": "返回模型列表",
+                  onClick: () => setSubmenu(null),
+                },
+                "←",
+              ),
+              h(
                 "div",
                 { className: "dot", style: { background: choice.vendor.soft, color: choice.vendor.ink } },
                 choice.vendor.icon,
@@ -1171,7 +1186,14 @@ window.__ModuleLoader__.load({
           h(
             react.Fragment,
             null,
-            h("div", { className: "pcm-overlay", style: { position: "fixed", inset: 0, zIndex: 70, background: "rgba(15,23,42,.12)" }, onMouseDown: closePanel }),
+            h("div", {
+              className: "pcm-overlay",
+              style: { position: "fixed", inset: 0, zIndex: 70, background: "rgba(15,23,42,.12)" },
+              onMouseDown: () => {
+                if (overlayAction(Boolean(submenu)) === "close-menu") setSubmenu(null);
+                else closePanel();
+              },
+            }),
             panel,
             menu,
           ),
